@@ -115,6 +115,7 @@
         </div>
     </div>
 
+
     <script>
         // ─── 설정 ───
         const API_BASE = 'https://70crv2wl9a.execute-api.ap-northeast-2.amazonaws.com/dev';
@@ -127,6 +128,9 @@
         const searchInput = document.getElementById('searchInput');
         const statusDiv = document.getElementById('status');
         const answerDiv = document.getElementById('answer');
+
+        // ─── 채팅 세션 상태 ───
+        let currentSessionId = null;
 
         // ─── 이미지 선택 시 미리보기 ───
         imageInput.addEventListener('change', function () {
@@ -159,7 +163,6 @@
 
             try {
                 let s3_key = null;
-                let session_id = null;
 
                 // ─── 이미지가 있으면 S3에 업로드 ───
                 if (file) {
@@ -170,9 +173,18 @@
                     const presignRes = await fetch(API_BASE + '/products', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ content_type: file.type })
+                        body: JSON.stringify({
+                            content_type: file.type,
+                            session_id: currentSessionId // 진행 중인 세션이 있다면 같이 보냄
+                        })
                     });
                     const presignData = await presignRes.json();
+
+                    // 첫 업로드여서 세션 ID를 새로 발급받았다면 저장해둠
+                    if (!currentSessionId && presignData.session_id) {
+                        currentSessionId = presignData.session_id;
+                        console.log('새로운 세션이 시작되었습니다:', currentSessionId);
+                    }
 
                     // 2. S3에 직접 업로드
                     statusDiv.textContent = '📤 S3에 이미지 업로드 중...';
@@ -184,29 +196,27 @@
                     });
 
                     s3_key = presignData.s3_key;
-                    session_id = presignData.session_id;
                     statusDiv.className = 'status success';
-                    statusDiv.textContent = '✅ 이미지 업로드 완료! sessionId: ' + session_id;
+                    statusDiv.textContent = '✅ 이미지 업로드 완료!';
                 }
 
                 // ─── 채팅 API 호출 (Fargate) ───
-                // statusDiv.textContent = '🔍 검색 중...';
+                statusDiv.textContent = '🔍 검색 중...';
 
-                // const chatRes = await fetch(API_BASE + '/chat', {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({
-                //         text: text,
-                //         session_id: session_id,
-                //         s3_key: s3_key  // 이미지 없으면 null
-                //     })
-                // });
-                // const chatData = await chatRes.json();
+                const chatRes = await fetch(API_BASE + '/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: text,
+                        s3_key: s3_key  // 이미지 없으면 null
+                    })
+                });
+                const chatData = await chatRes.json();
 
-                // // 결과 표시
-                // answerDiv.innerHTML = chatData.answer || chatData.result || JSON.stringify(chatData);
-                // statusDiv.className = 'status success';
-                // statusDiv.textContent = '✅ 검색 완료!';
+                // 결과 표시
+                answerDiv.innerHTML = chatData.answer || chatData.result || JSON.stringify(chatData);
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ 검색 완료!';
 
             } catch (err) {
                 statusDiv.className = 'status error';
