@@ -183,7 +183,7 @@
                     // 첫 업로드여서 세션 ID를 새로 발급받았다면 저장해둠
                     if (!currentSessionId && presignData.session_id) {
                         currentSessionId = presignData.session_id;
-                        console.log('새로운 세션이 시작되었습니다:', currentSessionId);
+                        console.log('새로운 세션이 시작되었습니다:', presignData.session_id);
                     }
 
                     // 2. S3에 직접 업로드
@@ -197,26 +197,27 @@
 
                     s3_key = presignData.s3_key;
                     statusDiv.className = 'status success';
-                    statusDiv.textContent = '✅ 이미지 업로드 완료!';
+                    statusDiv.textContent = '✅ 이미지 업로드 완료! currentSessionId:' + currentSessionId;
                 }
 
                 // ─── 채팅 API 호출 (Fargate) ───
-                statusDiv.textContent = '🔍 검색 중...';
+                // statusDiv.textContent = '🔍 검색 중...';
 
-                const chatRes = await fetch(API_BASE + '/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        text: text,
-                        s3_key: s3_key  // 이미지 없으면 null
-                    })
-                });
-                const chatData = await chatRes.json();
+                // const chatRes = await fetch(API_BASE + '/chat', {
+                //     method: 'POST',
+                //     headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify({
+                //         text: text,
+                //         currentSessionId: currentSessionId,
+                //         s3_key: s3_key  // 이미지 없으면 null
+                //     })
+                // });
+                // const chatData = await chatRes.json();
 
-                // 결과 표시
-                answerDiv.innerHTML = chatData.answer || chatData.result || JSON.stringify(chatData);
-                statusDiv.className = 'status success';
-                statusDiv.textContent = '✅ 검색 완료!';
+                // // 결과 표시
+                // answerDiv.innerHTML = chatData.answer || chatData.result || JSON.stringify(chatData);
+                // statusDiv.className = 'status success';
+                // statusDiv.textContent = '✅ 검색 완료!';
 
             } catch (err) {
                 statusDiv.className = 'status error';
