@@ -481,7 +481,7 @@
         async function uploadImageToS3(fileToUpload, loadingBubble) {
             loadingBubble.querySelector('.status-line').textContent = '📤 Presigned URL 발급 중...';
 
-            const presignRes = await fetch(API_BASE + '/api/products', {
+            const presignRes = await fetch('/api/products', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
