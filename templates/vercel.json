@@ -2,7 +2,7 @@
     "rewrites": [
         {
             "source": "/ai-api/:path*",
-            "destination": "http://shopping-ai-agent-stg-alb-1181648283.ap-northeast-2.elb.amazonaws.com/:path*"
+            "destination": "http://shopping-ai-agent-stg-alb-782878968.ap-northeast-2.elb.amazonaws.com/:path*"
         },
         {
             "source": "/api/(.*)",
