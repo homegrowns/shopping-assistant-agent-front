@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>Shopping AI Assistant</title>
+    <link rel="icon" type="image/jpeg" href="./shopping_agent_icon.jpg">
 
     <!-- ============================================================
          [스타일 시트]
@@ -334,7 +335,7 @@
     <script>
         // ─── 설정 ───
         const LAMBDA_API = 'https://70crv2wl9a.execute-api.ap-northeast-2.amazonaws.com/dev';  // Lambda: presigned URL
-        const FASTAPI_BASE = 'http://localhost:8000';  // FastAPI: 검색 (로컬 임시)
+        const FASTAPI_BASE = 'http://shopping-ai-agent-stg-alb-1181648283.ap-northeast-2.elb.amazonaws.com/:8000';  // FastAPI: 검색 (로컬 임시)
 
         // ─── 채팅 세션 상태 ───
         let currentSessionId = null;
