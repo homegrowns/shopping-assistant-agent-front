@@ -567,7 +567,7 @@
             // if (fileToUpload) formData.append('file', fileToUpload);
             if (s3Key) formData.append('s3_key', s3Key);
 
-            const res = await fetch("/ai-api/search");
+            const res = await fetch("/ai-api/search", { method: 'POST', body: formData });
 
             if (!res.ok) {
                 throw new Error(`검색 서버 응답 오류 (상태 코드: ${res.status})`);
