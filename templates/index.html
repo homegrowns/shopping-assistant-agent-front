@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>이미지+텍스트 유사도 검색</title>
+    <title>Shopping AI Assistant</title>
 
     <!-- ============================================================
          [스타일 시트]
@@ -251,6 +251,36 @@
             height: 32px;
             overflow: hidden;
         }
+
+        .card .link {
+            font-size: 6px;
+            color: #444;
+            margin-top: 3px;
+        }
+
+        .card .mall_name {
+            font-size: 12px;
+            color: #4a7dff;
+            margin-top: 6px;
+        }
+
+        .card .brand {
+            font-size: 12px;
+            color: #4a7dff;
+            margin-top: 6px;
+        }
+
+        .card .lprice {
+            font-size: 11px;
+            color: #4a7dff;
+            margin-top: 3px;
+        }
+
+        .card .hprice {
+            font-size: 11px;
+            color: #4a7dff;
+            margin-top: 7px;
+        }
     </style>
 </head>
 
@@ -258,7 +288,7 @@
     <!-- ============================================================
          [페이지 제목]
     ============================================================ -->
-    <h1>이미지+텍스트로 유사 상품 검색</h1>
+    <h1>Shopping AI Assistant</h1>
 
     <!-- ============================================================
          [채팅 로그 영역]
@@ -302,9 +332,12 @@
          5. 서버 API 호출 (/search) 및 결과 표시
     ============================================================ -->
     <script>
+        // ─── 설정 ───
+        const API_BASE = 'https://70crv2wl9a.execute-api.ap-northeast-2.amazonaws.com/dev';
 
         // ─── 채팅 세션 상태 ───
         let currentSessionId = null;
+
         /* ===========================================================
            [2] DOM 요소 참조 캐싱
            ─────────────────────────────────────────────────────────────
@@ -411,8 +444,8 @@
             el.className = 'msg user';
             el.innerHTML = `
       <div class="bubble">
-        ${message ? escapeHtml(message) : ''}
         ${imageUrl ? `<img src="${imageUrl}" class="msg-thumb" />` : ''}
+        ${message ? escapeHtml(message) : ''}
       </div>
     `;
             chatLog.appendChild(el);
@@ -473,6 +506,7 @@
               - crop_applied가 true면 크롭 적용 안내 추가
            8) 실패 시: 로딩 말풍선에 에러 메시지 표시
         =========================================================== */
+        // TODO: [Step 2] , [Step 2] llm 응답으로 대체
         /* ===========================================================
     1. S3 이미지 업로드 전용 함수
     성공 시 s3_key 반환, 실패 시 에러 throw
@@ -480,9 +514,9 @@
         async function uploadImageToS3(fileToUpload, loadingBubble) {
             loadingBubble.querySelector('.status-line').textContent = '📤 Presigned URL 발급 중...';
 
-            const presignRes = await fetch('/api/products', {
+            const presignRes = await fetch(API_BASE + '/products', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     content_type: fileToUpload.type,
                     session_id: currentSessionId  // 전역 변수 참조
@@ -505,7 +539,7 @@
 
             const uploadRes = await fetch(presignData.presigned_url, {
                 method: 'PUT',
-                headers: { 'Content-Type': fileToUpload.type },
+                headers: {'Content-Type': fileToUpload.type},
                 body: fileToUpload
             });
 
@@ -523,16 +557,16 @@
         2. 유사 상품 검색 전용 함수
         성공 시 검색 결과(데이터) 반환, 실패 시 에러 throw
         =========================================================== */
-        async function searchSimilarProducts(message, fileToUpload, s3Key, loadingBubble) {
+        async function searchSimilarProducts(message, s3Key, loadingBubble) {
             loadingBubble.querySelector('.status-line').textContent = '🔍 유사 상품 검색 중...';
 
             const formData = new FormData();
             formData.append('session_id', currentSessionId);
             if (message) formData.append('message', message);
-            if (fileToUpload) formData.append('file', fileToUpload);
+            // if (fileToUpload) formData.append('file', fileToUpload);
             if (s3Key) formData.append('s3_key', s3Key);
 
-            const res = await fetch('/search?top_k=8', { method: 'POST', body: formData });
+            const res = await fetch('/search?top_k=8', {method: 'POST', body: formData});
 
             if (!res.ok) {
                 throw new Error(`검색 서버 응답 오류 (상태 코드: ${res.status})`);
@@ -584,18 +618,25 @@
                 }
 
                 // [Step 2] 검색 요청
-                const data = await searchSimilarProducts(message, fileToUpload, s3Key, loadingBubble);
+                const data = await searchSimilarProducts(message, s3Key, loadingBubble);
 
                 // [Step 3] 결과 렌더링
-                let statusText = `${data.results.length}개 유사 상품을 찾았습니다.`;
-                if (data.crop_applied) statusText += ' (주요 영역 감지 → 크롭해서 검색함)';
+                let statusText = '';
+                if (data.results.length == 0 && !data.answer) {
+                    statusText = '유사한 상품을 찾지 못했습니다.';
+                }
+                else statusText = data.answer;
+
 
                 loadingBubble.querySelector('.status-line').textContent = statusText;
                 loadingBubble.querySelector('#results').innerHTML = data.results.map(r => `
                 <div class="card">
+                    <div class="link">${escapeHtml(r.link || '')}</div>
                     <img src="${r.image_url}" onerror="this.style.opacity=0.2" />
-                    <div class="title">${escapeHtml(r.title || r.product_id || '')}</div>
-                    <div class="score">score: ${r.score}</div>
+                    <div class="title">${escapeHtml(r.title || '')}</div>
+                    <div class="hprice">최고가: ${escapeHtml(r.hprice || '??')}</div>
+                    <div class="lprice">최저가: ${escapeHtml(r.lprice || '??')}</div>
+                    <div class="mall_name">판매처: ${r.mall_name || ''}</div>
                 </div>
             `).join('');
 
