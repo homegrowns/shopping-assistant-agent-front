@@ -335,7 +335,6 @@
     <script>
         // ─── 설정 ───
         const LAMBDA_API = 'https://70crv2wl9a.execute-api.ap-northeast-2.amazonaws.com/dev';  // Lambda: presigned URL
-        const FASTAPI_BASE = 'http://shopping-ai-agent-stg-alb-1181648283.ap-northeast-2.elb.amazonaws.com/8000';  // FastAPI: 검색 (로컬 임시)
 
         // ─── 채팅 세션 상태 ───
         let currentSessionId = null;
@@ -568,7 +567,7 @@
             // if (fileToUpload) formData.append('file', fileToUpload);
             if (s3Key) formData.append('s3_key', s3Key);
 
-            const res = await fetch(FASTAPI_BASE + '/search', { method: 'POST', body: formData });
+            const res = await fetch("/ai-api/search");
 
             if (!res.ok) {
                 throw new Error(`검색 서버 응답 오류 (상태 코드: ${res.status})`);
