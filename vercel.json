@@ -2,5 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/search",
+      "destination": "http://shopping-ai-agent-stg-alb-1421410010.ap-northeast-2.elb.amazonaws.com/search"
+    }
+  ]
 }
