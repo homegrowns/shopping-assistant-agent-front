@@ -36,4 +36,4 @@ pnpm-debug.log*
 Thumbs.db
 
 # legacy
-templates/*
+templates/
