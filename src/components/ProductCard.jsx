@@ -37,9 +37,6 @@ export default function ProductCard({ product }) {
         </div>
       )}
       <div className="product-title">{title}</div>
-      <div className="product-high-price">
-        최고가: {displayValue(product.hprice)}
-      </div>
       <div className="product-low-price">
         최저가: {displayValue(product.lprice)}
       </div>
