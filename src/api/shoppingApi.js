@@ -16,7 +16,7 @@ export const searchApiBase =
 
 // 환경변수가 있으면 절대 URL, 없으면 상대 URL이 된다.
 export const SEARCH_ENDPOINT = `${searchApiBase || ''}/search?top_k=8`;
-
+export const SEARCH_STREAM_ENDPOINT = `${searchApiBase || ''}/search/stream?top_k=8`;
 // 빈 응답이나 JSON이 아닌 응답도 안전하게 처리하기 위한 파싱 함수.
 async function readJson(response) {
   try {
@@ -158,4 +158,126 @@ export async function searchProducts(
     answer: typeof data?.answer === 'string' ? data.answer : '',
     results: Array.isArray(data?.results) ? data.results : [],
   };
+}
+
+export async function streamSearchProducts(
+  { message, s3Key, sessionId },
+  { onToken, onResults, onStatus },
+  signal,
+) {
+  const formData = new FormData();
+
+  formData.append('session_id', sessionId ?? '');
+
+  if (message) {
+    formData.append('message', message);
+  }
+
+  if (s3Key) {
+    formData.append('s3_key', s3Key);
+  }
+
+  const searchUrl = new URL(
+    SEARCH_STREAM_ENDPOINT,
+    window.location.origin,
+  );
+
+  const response = await fetch(searchUrl, {
+    method: 'POST',
+    body: formData,
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `검색 서버 응답 오류 (${response.status})`,
+    );
+  }
+
+  if (!response.body) {
+    throw new Error('스트리밍 응답을 받을 수 없습니다.');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+
+  let buffer = '';
+
+  while (true) {
+    const { value, done } = await reader.read();
+
+    if (done) {
+      break;
+    }
+
+    // Uint8Array → 문자열
+    buffer += decoder.decode(value, {
+      stream: true,
+    });
+
+    // SSE는 \n\n으로 이벤트 구분
+    const events = buffer.split('\n\n');
+
+    // 마지막은 아직 덜 들어온 이벤트일 수 있음
+    buffer = events.pop() || '';
+
+    for (const event of events) {
+      const dataLine = event
+        .split('\n')
+        .find((line) => line.startsWith('data:'));
+
+      if (!dataLine) {
+        continue;
+      }
+
+      const rawData = dataLine
+        .replace(/^data:\s*/, '')
+        .trim();
+
+      if (!rawData) {
+        continue;
+      }
+
+      const data = JSON.parse(rawData);
+
+      // 백엔드가 LLM 응답 chunk를 보낸 경우
+      // 예:
+      // {
+      //   "type": "token",
+      //   "token": "블랙"
+      // }
+      //
+      // data.token 값이 존재하면 onToken 콜백을 호출한다.
+      // 호출부에서는 이 token을 streamedAnswer에 누적해서
+      // ChatGPT처럼 답변이 실시간으로 생성되는 UI를 만든다.
+      if (data.token) {
+        console.log('token 수신:', data.token);
+        onToken?.(data.token);
+      }
+
+      // 백엔드가 현재 처리 상태를 보낸 경우
+      // 예:
+      // {
+      //   "type": "status",
+      //   "status": "🔍 상품 검색 중..."
+      // }
+      //
+      // data.status 값이 존재하면 onStatus 콜백을 호출한다.
+      // 호출부에서는 Assistant 메시지의 text를 이 상태 문구로 바꿔
+      // "질문 분석 중", "상품 검색 중", "가격 확인 중" 같은
+      // 진행 상태를 사용자 화면에 표시한다.
+      if (data.status) {
+        console.log('status 수신:', data.status);
+        onStatus?.(data.status);
+      }
+
+      if (data.done) {
+        onResults?.(
+          Array.isArray(data.results)
+            ? data.results
+            : [],
+        );
+      }
+    }
+  }
 }

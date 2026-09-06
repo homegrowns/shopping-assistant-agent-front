@@ -1,7 +1,20 @@
+import { useEffect, useState } from 'react';
 import ProductGrid from './ProductGrid.jsx';
 
 export default function ChatMessage({ message }) {
   const isUser = message.role === 'user';
+  const showLoadingDots = !isUser && message.status === 'loading';
+  const [loadingDots, setLoadingDots] = useState('');
+
+  useEffect(() => {
+    if (!showLoadingDots) return undefined;
+
+    const intervalId = setInterval(() => {
+      setLoadingDots((dots) => (dots === '...' ? '' : `${dots}.`));
+    }, 400);
+
+    return () => clearInterval(intervalId);
+  }, [showLoadingDots]);
 
   return (
     <div className={`chat-message ${isUser ? 'user' : 'assistant'}`}>
@@ -22,6 +35,11 @@ export default function ChatMessage({ message }) {
               role={message.status === 'error' ? 'alert' : 'status'}
             >
               {message.text}
+              {showLoadingDots ? (
+                <span className="loading-dots" aria-hidden="true">
+                  {loadingDots}
+                </span>
+              ) : null}
             </div>
             <ProductGrid products={message.results || []} />
           </>
