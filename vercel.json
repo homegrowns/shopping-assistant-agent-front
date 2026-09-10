@@ -6,11 +6,11 @@
   "rewrites": [
     {
       "source": "/search",
-      "destination": "http://shopping-ai-agent-stg-alb-1583986974.ap-northeast-2.elb.amazonaws.com/search"
+      "destination": "http://shopping-ai-agent-stg-alb-1178285797.ap-northeast-2.elb.amazonaws.com/search"
     },
     {
       "source": "/search/:path*",
-      "destination": "http://shopping-ai-agent-stg-alb-1583986974.ap-northeast-2.elb.amazonaws.com/search/:path*"
+      "destination": "http://shopping-ai-agent-stg-alb-1178285797.ap-northeast-2.elb.amazonaws.com/search/:path*"
     },
     {
       "source": "/(.*)",
