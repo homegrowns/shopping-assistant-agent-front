@@ -3,8 +3,7 @@ import ProductCard from './ProductCard.jsx';
 function productKey(product) {
   return String(
     product.id ||
-      product.product_id ||
-      product.link ||
+      product.product_url ||
       `${product.image_url || 'no-image'}-${product.title || 'untitled'}`,
   );
 }

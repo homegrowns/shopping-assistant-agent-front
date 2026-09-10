@@ -17,10 +17,34 @@ function displayValue(value) {
   return value === null || value === undefined || value === '' ? '??' : value;
 }
 
+function productTags(value) {
+  let tags = value;
+
+  if (typeof value === 'string') {
+    if (!value.trim()) return [];
+
+    try {
+      tags = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+
+  if (!Array.isArray(tags)) return [];
+
+  return [...new Set(
+    tags
+      .filter((tag) => typeof tag === 'string')
+      .map((tag) => tag.trim())
+      .filter(Boolean),
+  )];
+}
+
 export default function ProductCard({ product }) {
   const [imageFailed, setImageFailed] = useState(false);
   const title = String(product.title || product.product_id || '상품명 없음');
-  const link = safeProductUrl(product.link);
+  const link = safeProductUrl(product.product_url);
+  const tags = productTags(product.tags);
 
   const content = (
     <>
@@ -38,9 +62,16 @@ export default function ProductCard({ product }) {
       )}
       <div className="product-title">{title}</div>
       <div className="product-low-price">
-        최저가: {displayValue(product.lprice)}
+        가격: {displayValue(product.sale_price)}
       </div>
-      <div className="product-mall">판매처: {product.mall_name || ''}</div>
+      <div className="product-mall">판매처: {product.site || ''}</div>
+      {tags.length ? (
+        <div className="product-tags" aria-label="상품 태그">
+          {tags.map((tag) => (
+            <span className="product-tag" key={tag}>#{tag}</span>
+          ))}
+        </div>
+      ) : null}
     </>
   );
 
