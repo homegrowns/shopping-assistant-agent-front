@@ -162,7 +162,7 @@ export async function searchProducts(
 
 export async function streamSearchProducts(
   { message, s3Key, sessionId },
-  { onToken, onResults, onStatus },
+  { onToken, onResults, onStatus, onDone },
   signal,
 ) {
   const formData = new FormData();
@@ -215,68 +215,167 @@ export async function streamSearchProducts(
       stream: true,
     });
 
-    // SSE는 \n\n으로 이벤트 구분
-    const events = buffer.split('\n\n');
+    // SSE 이벤트는 빈 줄(\n\n) 기준으로 구분
+    // Windows 계열 \r\n도 같이 처리
+    const events = buffer.split(/\r?\n\r?\n/);
 
-    // 마지막은 아직 덜 들어온 이벤트일 수 있음
+    // 마지막 데이터는 아직 완성되지 않았을 수 있으므로
+    // 다음 read()에서 이어 붙이기 위해 보관
     buffer = events.pop() || '';
 
     for (const event of events) {
-      const dataLine = event
-        .split('\n')
-        .find((line) => line.startsWith('data:'));
+      // SSE의 data: 라인 추출
+      const dataLines = event
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith('data:'));
 
-      if (!dataLine) {
+      if (!dataLines.length) {
         continue;
       }
 
-      const rawData = dataLine
-        .replace(/^data:\s*/, '')
+      const rawData = dataLines
+        .map((line) =>
+          line.replace(/^data:\s*/, ''),
+        )
+        .join('\n')
         .trim();
 
       if (!rawData) {
         continue;
       }
 
-      const data = JSON.parse(rawData);
+      let data;
 
-      // 백엔드가 LLM 응답 chunk를 보낸 경우
-      // 예:
-      // {
-      //   "type": "token",
-      //   "token": "블랙"
-      // }
-      //
-      // data.token 값이 존재하면 onToken 콜백을 호출한다.
-      // 호출부에서는 이 token을 streamedAnswer에 누적해서
-      // ChatGPT처럼 답변이 실시간으로 생성되는 UI를 만든다.
-      if (data.token) {
-        console.log('token 수신:', data.token);
-        onToken?.(data.token);
+      try {
+        data = JSON.parse(rawData);
+      } catch (error) {
+        console.error(
+          '[SSE JSON 파싱 실패]',
+          rawData,
+          error,
+        );
+        continue;
       }
 
-      // 백엔드가 현재 처리 상태를 보낸 경우
-      // 예:
+      // ==================================================
+      // 1. LLM 답변 스트리밍
+      // ==================================================
+      //
+      // 권장 백엔드:
+      // {
+      //   "type": "token",
+      //   "content": "운동화를"
+      // }
+      //
+      // 기존 구조:
+      // {
+      //   "type": "token",
+      //   "token": "운동화를"
+      // }
+      //
+      // 두 구조 모두 지원
+      if (data.type === 'token' || data.token) {
+        const token =
+          typeof data.content === 'string'
+            ? data.content
+            : typeof data.token === 'string'
+              ? data.token
+              : '';
+
+        if (token) {
+          console.log('[SSE token 수신]', token);
+
+          onToken?.(token);
+        }
+
+        continue;
+      }
+
+      // ==================================================
+      // 2. 처리 상태
+      // ==================================================
+      //
       // {
       //   "type": "status",
       //   "status": "🔍 상품 검색 중..."
       // }
       //
-      // data.status 값이 존재하면 onStatus 콜백을 호출한다.
-      // 호출부에서는 Assistant 메시지의 text를 이 상태 문구로 바꿔
-      // "질문 분석 중", "상품 검색 중", "가격 확인 중" 같은
-      // 진행 상태를 사용자 화면에 표시한다.
-      if (data.status) {
-        console.log('status 수신:', data.status);
-        onStatus?.(data.status);
+      if (
+        data.type === 'status' ||
+        typeof data.status === 'string'
+      ) {
+        if (
+          typeof data.status === 'string' &&
+          data.status
+        ) {
+          console.log(
+            '[SSE status 수신]',
+            data.status,
+          );
+
+          onStatus?.(data.status);
+        }
+
+        continue;
       }
 
-      if (data.done) {
-        onResults?.(
-          Array.isArray(data.results)
+      // ==================================================
+      // 3. 스트리밍 완료
+      // ==================================================
+      //
+      // 권장 백엔드:
+      //
+      // {
+      //   "type": "done",
+      //   "answer": "최종 답변...",
+      //   "search_results": [...]
+      // }
+      //
+      // 기존의
+      // {
+      //   "done": true,
+      //   "results": [...]
+      // }
+      //
+      // 형태도 지원
+      if (
+        data.type === 'done' ||
+        data.done === true
+      ) {
+        console.log('[SSE done 수신]', data);
+
+        // -----------------------------------------------
+        // 최종 답변
+        // -----------------------------------------------
+        let finalAnswer = '';
+
+        if (typeof data.answer === 'string') {
+          finalAnswer = data.answer;
+        } else if (Array.isArray(data.answer)) {
+          // 백엔드에서 answer_chunks 자체가 넘어오는 경우
+          finalAnswer = data.answer.join('');
+        }
+
+        // 지금까지 token으로 append했던 답변을
+        // 최종 answer로 통째로 교체하기 위한 콜백
+        onDone?.(finalAnswer);
+
+        // -----------------------------------------------
+        // 상품 검색 결과
+        // -----------------------------------------------
+        // 새로운 search_results와
+        // 기존 results 둘 다 지원
+        const results = Array.isArray(
+          data.search_results,
+        )
+          ? data.search_results
+          : Array.isArray(data.results)
             ? data.results
-            : [],
-        );
+            : [];
+
+        onResults?.(results);
+
+        continue;
       }
     }
   }

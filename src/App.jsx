@@ -119,30 +119,52 @@ export default function App() {
       });
 
       let streamedAnswer = '';
+      let hasStartedStreaming = false;
 
       await streamSearchProducts(
         { message, s3Key, sessionId: activeSessionId },
         {
           onStatus: (status) => {
-            // 백엔드에서 상태가 바뀔 때마다 실행됨 ("🤖 질문 분석 중...", "🔍 상품 검색 중..." 등)
             console.log('[UI onStatus 호출]', status);
+
+            // 이미 LLM 답변 스트리밍이 시작된 뒤에는
+            // 상태 메시지가 실제 답변을 덮어쓰지 않도록 한다.
+            if (hasStartedStreaming) {
+              return;
+            }
+
             updateAssistantMessage(assistantId, {
               text: loadingStatusText(status),
               status: 'loading',
             });
           },
+
           onToken: (token) => {
-            // LLM 답변이 한 글자씩 올 때마다 실행됨
             console.log('[UI onToken 호출]', token);
+
+            hasStartedStreaming = true;
+
+            // 실제 LLM delta token을 계속 누적
             streamedAnswer += token;
 
-            // 누적된 전체 답변으로 기존 Assistant 메시지를 계속 갱신한다.
-            // 이 과정 때문에 사용자 화면에서는
-            // ChatGPT처럼 답변이 실시간으로 생성되는 것처럼 보인다.
-            //
-            // 이전에 onStatus가 표시한
-            // "🔍 상품 검색 중..." 같은 문구는
-            // 첫 token이 도착하는 순간 실제 LLM 답변으로 교체된다.
+            updateAssistantMessage(assistantId, {
+              text: streamedAnswer,
+              status: 'streaming',
+            });
+          },
+
+          // --------------------------------------------------
+          // 백엔드의 done 이벤트가 도착했을 때 실행
+          // --------------------------------------------------
+          onDone: (answer) => {
+            console.log('[UI onDone 호출]', answer);
+
+            // 백엔드에서 최종 완성된 답변을 보내줬다면
+            // 지금까지 append한 내용을 최종 answer로 통째로 교체
+            if (typeof answer === 'string' && answer.trim()) {
+              streamedAnswer = answer;
+            }
+
             updateAssistantMessage(assistantId, {
               text: streamedAnswer,
               status: 'streaming',
@@ -151,50 +173,21 @@ export default function App() {
 
           onResults: (results) => {
             console.log('[UI onResults 호출]', results);
-            // 백엔드의 검색/LLM 처리가 모두 끝나고
-            // 최종 상품 검색 결과가 전달될 때 한 번 호출된다.
-            //
-            // results 예:
-            // [
-            //   {
-            //     product_id: 343,
-            //     title: "...",
-            //     image_url: "...",
-            //     price: 51300
-            //   },
-            //   ...
-            // ]
 
             updateAssistantMessage(assistantId, {
-              // LLM이 실제 답변을 스트리밍했다면
-              // 그동안 누적한 최종 streamedAnswer를 그대로 유지한다.
-              //
-              // 만약 streamedAnswer가 비어 있다면:
-              // - 상품이 존재하면 빈 문자열 유지
-              //   → 상품 카드만 보여줄 수 있음
-              // - 상품도 없다면 사용자에게 검색 실패 문구를 보여준다.
               text:
                 streamedAnswer ||
                 (results.length
                   ? ''
                   : '유사한 상품을 찾지 못했습니다.'),
 
-              // 현재 Assistant 메시지의 처리가 끝났음을 표시한다.
-              // UI에서 loading spinner 제거 등에 사용할 수 있다.
               status: 'success',
 
-              // 최종 상품 데이터를 Assistant 메시지에 저장한다.
-              // React 렌더링 단계에서 이 값을 이용해 상품 카드를 표시한다.
               results,
             });
           },
         },
 
-        // 3) 요청 취소를 위한 AbortSignal
-        //
-        // 사용자가 새 검색을 시작하거나,
-        // 페이지를 이동하거나,
-        // 직접 취소했을 때 현재 fetch/stream 연결을 종료하는 데 사용한다.
         controller.signal,
       );
 
