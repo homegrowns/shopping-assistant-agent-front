@@ -61,9 +61,12 @@ export default function ProductCard({ product }) {
         </div>
       )}
       <div className="product-title">{title}</div>
-      <div className="product-low-price">
+      <div className="product-price">
         가격: {displayValue(product.sale_price)}
       </div>
+      {/* <div className="product-discount-rate">
+        할인%: {displayValue(product.discount_rate)}
+      </div> */}
       <div className="product-mall">판매처: {product.site || ''}</div>
       {tags.length ? (
         <div className="product-tags" aria-label="상품 태그">
