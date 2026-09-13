@@ -17,6 +17,12 @@ function displayValue(value) {
   return value === null || value === undefined || value === '' ? '??' : value;
 }
 
+function formatPrice(value) {
+  const displayed = displayValue(value);
+  const amount = Number(String(displayed).replaceAll(',', ''));
+  return Number.isFinite(amount) ? amount.toLocaleString('ko-KR') : displayed;
+}
+
 function productTags(value) {
   let tags = value;
 
@@ -45,6 +51,9 @@ export default function ProductCard({ product }) {
   const title = String(product.title || product.product_id || '상품명 없음');
   const link = safeProductUrl(product.product_url);
   const tags = productTags(product.tags);
+  const discountRate = Number(product.discount_rate);
+  const hasDiscount = String(product.discount_rate ?? '').trim() !== ''
+    && Number.isFinite(discountRate) && discountRate >= 0 && discountRate <= 100;
 
   const content = (
     <>
@@ -62,11 +71,16 @@ export default function ProductCard({ product }) {
       )}
       <div className="product-title">{title}</div>
       <div className="product-price">
-        가격: {displayValue(product.sale_price)}
+        원가: {formatPrice(product.sale_price)}원
       </div>
-      {/* <div className="product-discount-rate">
-        할인%: {displayValue(product.discount_rate)}
-      </div> */}
+      {hasDiscount && (
+        <div className="product-discount-rate">
+          할인: <span className="product-discount-value">{discountRate} %</span>
+          <div className="product-discount-notice">
+            할인율은 판매처 사정에 따라 변경될 수 있습니다.
+          </div>
+        </div>
+      )}
       <div className="product-mall">판매처: {product.site || ''}</div>
       {tags.length ? (
         <div className="product-tags" aria-label="상품 태그">

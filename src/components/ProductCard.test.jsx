@@ -12,6 +12,24 @@ const product = {
 };
 
 describe('ProductCard', () => {
+  test.each([30, 10, 0, 99.95, 100])(
+    'shows the original price and %s percent without a calculated sale price',
+    (discountRate) => {
+      render(<ProductCard product={{ ...product, sale_price: '39,900', discount_rate: discountRate }} />);
+      expect(screen.getByText('원가: 39,900원')).toBeInTheDocument();
+      expect(screen.getByText(`${discountRate} %`)).toBeInTheDocument();
+      expect(screen.queryByText(/할인가:/)).not.toBeInTheDocument();
+    },
+  );
+
+  test.each([undefined, null, '', ' ', 'invalid', -1, 101])(
+    'hides the discount for missing or invalid rate %s',
+    (discountRate) => {
+      render(<ProductCard product={{ ...product, discount_rate: discountRate }} />);
+      expect(screen.queryByText(/할인:/)).not.toBeInTheDocument();
+    },
+  );
+
   test('renders tags received as a JSON string', () => {
     render(
       <ProductCard

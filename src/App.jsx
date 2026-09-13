@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { streamSearchProducts, uploadImage } from './api/shoppingApi.js';
 import ChatLog from './components/ChatLog.jsx';
+import Brand from './components/Brand.jsx';
 import Composer from './components/Composer.jsx';
 import { useObjectUrl } from './hooks/useObjectUrl.js';
 
@@ -212,7 +213,7 @@ export default function App() {
 
   return (
     <main className="app-shell">
-      <h1>Shopping AI Assistant</h1>
+      <h1 className="app-title"><Brand /></h1>
       <ChatLog messages={messages} />
       <Composer
         messageInput={messageInput}
