@@ -80,7 +80,7 @@ export default function Composer({
           id="message-input"
           className="message-input"
           rows="1"
-          placeholder="찾고 싶은 상품을 설명하거나, 이미지를 첨부해보세요"
+          placeholder="이미지를 첨부하거나, ~ 추천해줘 입력 (예시 나이키 신발 찾아줘)"
           value={messageInput}
           onChange={(event) => onMessageChange(event.target.value)}
           onKeyDown={handleKeyDown}
